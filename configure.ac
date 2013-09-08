@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([bitz-server], [0.0.1], [https://github.com/uditha-atukorala/bitz-server/issues])
+AC_INIT([bitz-server], [0.1.1], [http://bugs.geniusse.com/])
 AC_CONFIG_AUX_DIR([aux-build])
 AC_CONFIG_MACRO_DIR([aux-build/m4])
 AC_CONFIG_HEADERS([include/config.h])
@@ -32,8 +32,9 @@ AC_CONFIG_HEADERS([include/config.h])
 #                 better
 # CURRENT : REVISION : AGE
 
-LT_VERSION=0:0:1
-AC_SUBST(LT_VERSION)
+# lib versions
+ICAP_LT_VERSION=0:0:0
+AC_SUBST(ICAP_LT_VERSION)
 
 # Init
 AM_INIT_AUTOMAKE
@@ -55,10 +56,20 @@ AC_ARG_WITH([config],
 		[specify the config file to be used])],
 	[], [with_config=no])
 
+AC_ARG_ENABLE([modpy],
+	[AS_HELP_STRING([--enable-modpy],[Enable modpy module (default is yes)])],
+	[case "${enableval}" in
+		yes) modpy=true ;;
+		no)  modpy=false ;;
+		*) AC_MSG_ERROR([bad value ${enableval} for --enable-modpy]) ;;
+	esac],
+	[modpy=true]
+)
+AM_CONDITIONAL([MODPY], [test x$modpy = xtrue])
+
+
 # Checks for libraries
 AM_PROG_LIBTOOL
-
-AC_CHECK_LIB([pthread], [pthread_create],, AC_MSG_ERROR([usable pthread library now found]))
 
 PKG_PROG_PKG_CONFIG
 PKG_CHECK_MODULES([libconfig], [libconfig++ >= 1.4],,
@@ -85,6 +96,15 @@ AC_FUNC_ERROR_AT_LINE
 AC_FUNC_FORK
 AC_CHECK_FUNCS([gethostbyname inet_ntoa memmove memset select socket strchr strerror])
 
+# conditional statements
+AS_IF([test x$modpy = xtrue],
+	[
+		AM_PATH_PYTHON([2.7])
+		AM_CHECK_PYTHON_HEADERS
+		AM_CHECK_PYTHON_LIBS
+	]
+)
+
 # defines / substitutes
 AS_IF([test "x$with_config" != xno],
 	AC_DEFINE_UNQUOTED([BITZ_SERVER_CONFIG_FILE],
@@ -93,20 +113,29 @@ AS_IF([test "x$with_config" != xno],
 	)
 )
 
-AC_SUBST(openssl_LIBS)
-AC_SUBST(openssl_CFLAGS)
-
-pkgconfig_LIBS+="${openssl_LIBS}"
-AC_SUBST(pkgconfig_LIBS)
+# doxygen
+AC_CHECK_PROGS([DOXYGEN], [doxygen])
+if test -z "$DOXYGEN"; then
+	AC_MSG_WARN([Doxygen not found - continuing without Doxygen support])
+fi
+AM_CONDITIONAL([HAVE_DOXYGEN], [test -n "$DOXYGEN"])
 
 
 AC_CONFIG_FILES([ \
 	Makefile \
 	conf/Makefile \
+	doc/doxygen.cfg \
+	doc/Makefile \
 	include/Makefile \
 	lib/Makefile \
 	lib/socket/Makefile \
+	lib/icap/Makefile \
 	src/Makefile \
+	modules/Makefile \
+	modules/echo/Makefile \
+	modules/modpy/Makefile \
+	modules/modpy/modules/Makefile \
 ])
 
 AC_OUTPUT
+

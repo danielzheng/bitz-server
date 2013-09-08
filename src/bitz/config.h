@@ -21,6 +21,8 @@
 #define BITZ_CONFIG_H
 
 #include <string>
+#include <libconfig.h++>
+
 
 #ifndef BITZ_SERVER_CONFIG_FILE
 #define BITZ_SERVER_CONFIG_FILE "/etc/bitz/bitz-server.conf"
@@ -28,32 +30,66 @@
 
 namespace bitz {
 
+	struct modules_config_t {
+		std::string name;
+		std::string module;
+	};
+
+	struct req_handlers_config_t {
+		std::string name;
+		std::string class_name;
+		unsigned int modules_count;
+
+		modules_config_t * modules;
+	};
+
 	struct config_t {
 		int port;
+		int max_workers;
+		int max_worker_requests;
+		std::string pid_file;
 		std::string log_file;
 		std::string log_category;
+		unsigned int req_handlers_count;
+
+		req_handlers_config_t * req_handlers;
 	};
 
 	class Config {
-		public:
-			static Config &instance() {
-				static Config config;
-				return config;
-			}
+	public:
+		static Config &instance() {
+			static Config config;
+			return config;
+		}
 
-			const config_t &initialise( std::string config_file = BITZ_SERVER_CONFIG_FILE );
-			const config_t &configs();
+		const config_t &initialise( const std::string &config_file = BITZ_SERVER_CONFIG_FILE );
+		const config_t &configs();
 
-		private:
-			config_t _config;
+		/**
+		*   Returns module specific config value (or NULL string if not found)
+		*   Note: This method should be only used my the pluggable modules and not
+		*         by the core code.
+		*
+		*   @param module module name
+		*   @param config config name
+		*   @return module config value
+		*/
+		const std::string module_config( const std::string &module, const std::string &config ) throw();
 
-			Config();
-			~Config();
-			Config( Config const &copy );
-			Config &operator=( const Config &copy );
+	private:
+		config_t _config;
+		libconfig::Config * _lconfig;
+
+		Config();
+		~Config();
+		Config( Config const &copy );
+		Config &operator=( const Config &copy );
+
+		void read_req_handler_configs() throw();
+
 	};
 
-} // end of namespace bitz
+} /* end of namespace bitz */
 
 #endif /* !BITZ_CONFIG_H */
 

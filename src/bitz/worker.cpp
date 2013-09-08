@@ -19,41 +19,85 @@
 
 #include "worker.h"
 #include "logger.h"
+#include "util.h"
+#include "options_request_handler.h"
+#include "reqmod_request_handler.h"
+
+#include <icap/util.h>
+#include <icap/request_header.h>
+
 
 namespace bitz {
 
-	Worker::Worker() {}
-	Worker::~Worker() {
-		Logger &logger = Logger::instance();
-		logger.debug( "exiting worker" );
+	Worker::Worker() {
+
+		// load request handlers
+		load_req_handlers();
+
 	}
+
+
+	Worker::~Worker() {
+
+		// logger
+		Logger &logger = Logger::instance();
+		logger.debug( "[worker] exiting" );
+
+		// cleanup request handlers
+		util::delete_req_handlers( _req_handlers );
+		delete _req_handlers["OPTIONS"];
+
+	}
+
 
 	void Worker::run( socketlibrary::TCPServerSocket * server_sock, unsigned int max_requests ) throw() {
 
-		socketlibrary::TCPSocket * client_sock;
+		Logger &logger = Logger::instance();
 
-		int  line_len;
-		char line[1024];
+		socketlibrary::TCPSocket * client_sock;
+		icap::RequestHeader * req_header;
+		icap::Response * response;
+		RequestHandler * req_handler;
+
 
 		try {
 
 			while ( max_requests > 0 ) {
 
-				client_sock = server_sock->accept();
-				std::cout << "New connection accepted on " << client_sock->getForeignAddress() << ":" << client_sock->getForeignPort() << std::endl;
+				logger.debug( std::string( "[worker] waiting for a connection" ) );
 
-				// read
-				line_len = client_sock->readline( line, 1024 );
-				if ( line_len == -1) {
-					std::cout << "Failed to read from connection" << std::endl;
+				client_sock = server_sock->accept();
+				logger.debug( std::string( "[worker] new connection accepted on " ).append( client_sock->getForeignAddress() )
+						.append( ":" ).append( util::itoa( client_sock->getForeignPort() ) ) );
+
+				// request header
+				req_header  = icap::util::read_req_header( client_sock );
+				logger.debug( std::string( "[worker] request header:\r\n" ).append( req_header->raw_data() ) );
+
+				// try to find a handler for the request
+				req_handler = util::find_req_handler( _req_handlers, req_header->method() );
+
+				if ( req_handler != NULL ) {
+
+					logger.debug( std::string( "[worker] handling request: " ).append( req_header->method() ) );
+
+					// process the request and grab the response
+					response = req_handler->process( req_header, client_sock );
+
 				} else {
 
-					std::cout << "client said: " << line << std::endl;
-
-					// echo back
-					client_sock->send( line, line_len );
+					// unsupported request
+					logger.info( std::string( "[worker] unsupported request: " ).append( req_header->method() ) );
+					response = new icap::Response( new icap::ResponseHeader( icap::ResponseHeader::NOT_ALLOWED ) );
 
 				}
+
+				// send the response back to the client
+				icap::util::send_response( response, client_sock );
+
+				// cleanup
+				delete response;
+				delete req_header;
 
 				// destroy / close connection
 				delete client_sock;
@@ -63,10 +107,25 @@ namespace bitz {
 			}
 
 		} catch( socketlibrary::SocketException &sex ) {
-			std::cout << "ERROR: " << sex.what() << std::endl;
+			logger.error( std::string( "[worker] ERROR: " ).append( sex.what() ) );
 		}
 
 	}
 
-} // end of namespace bitz
+
+	void Worker::load_req_handlers() throw() {
+
+		OptionsRequestHandler * options_handler;
+
+		// OPTIONS handler
+		options_handler = new OptionsRequestHandler();
+		_req_handlers["OPTIONS"] = options_handler;
+
+		// FIXME: these should be able to dynamically loaded and configurable
+		_req_handlers["REQMOD"]  = new ReqmodRequestHandler();
+		options_handler->register_handler( _req_handlers["REQMOD"] );
+
+	}
+
+} /* end of namespace bitz */
 

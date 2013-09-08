@@ -22,19 +22,26 @@
 
 #include <socket/socket.h>
 
+#include "common.h"
+
+
 namespace bitz {
 
 	class Worker {
-		public:
-			Worker();
-			virtual ~Worker();
+	public:
+		Worker();
+		virtual ~Worker();
 
-			virtual void run( socketlibrary::TCPServerSocket * server_sock, unsigned int max_requests ) throw();
+		virtual void run( socketlibrary::TCPServerSocket * server_sock, unsigned int max_requests ) throw();
 
-		private:
+	private:
+		req_handlers_t    _req_handlers;
+
+		virtual void load_req_handlers() throw();
+
 	};
 
-} // end of namespace bitz
+} /* end of namespace bitz */
 
 #endif /* !BITZ_WORKER_H */
 

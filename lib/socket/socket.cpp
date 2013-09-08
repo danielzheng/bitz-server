@@ -205,15 +205,23 @@ int CommunicatingSocket::recv(void *buffer, int bufferLen) throw(SocketException
 	return rtn;
 }
 
-int CommunicatingSocket::readline(char *buffer, int maxlen) throw(SocketException) {
+int CommunicatingSocket::peek(void *buffer, int bufferLen) throw(SocketException) {
+	int rtn;
+	if ((rtn = ::recv(sock, (raw_type *) buffer, bufferLen, MSG_PEEK)) < 0) {
+		throw SocketException("Received failed (recv()) for socket ", true);
+	}
+	return rtn;
+}
+
+int CommunicatingSocket::readLine(char *buffer, int bufferLen, const char delimiter) throw(SocketException) {
 
 	int n, rc;
 	char c;
 
-	for (n = 1; n < maxlen; n++) {
-		if ( ( rc = read( sock, &c, 1 ) ) == 1 ) {
+	for (n = 1; n < bufferLen; n++) {
+		if ((rc = recv(&c, 1)) == 1) {
 			*buffer++ = c;
-			if (c == '\n') {
+			if (c == delimiter) {
 				break;
 			}
 		} else if (rc == 0) {

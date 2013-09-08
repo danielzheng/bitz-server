@@ -17,12 +17,24 @@
  *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef ICAP_ICAP_H
-#define ICAP_ICAP_H
+#ifndef ICAP_COMMON_H
+#define ICAP_COMMON_H
+
+#include <string>
+
 
 namespace icap {
 
-} // end of namespace icap
+	/**
+	*   Payload structure common to both requests and responses.
+	*/
+	struct payload_t {
+		std::string req_header;    /**< request header  */
+		std::string req_body;      /**< request body    */
+		std::string res_header;    /**< response header */
+		std::string res_body;      /**< response body   */
+	};
 
-#endif /* !ICAP_ICAP_H */
+} /* end of namespace icap */
 
+#endif /* !ICAP_COMMON_H */

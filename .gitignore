@@ -25,9 +25,13 @@ Makefile.in
 .project
 .cproject
 .settings/*
+.pydevproject
 
 # swap files
 *.swp
+
+# python
+*.pyc
 
 # project specific
 build/*
